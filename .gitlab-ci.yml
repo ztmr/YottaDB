@@ -1,33 +1,5 @@
 stages:
-  - prepare
   - dockerize
-
-.prepare-generic: &prepare-generic
-  stage: prepare
-  only:
-  - tags
-  script:
-    - echo VSN=${VSN} > .env
-  artifacts:
-    paths:
-      - .env
-
-prepare-tag:
-  <<: *prepare-generic
-  before_script:
-    - export VSN=`git describe --tags --always`
-  only:
-  - tags
-
-prepare-edge:
-  <<: *prepare-generic
-  before_script:
-    - export VSN=`git rev-parse --abbrev-ref HEAD`
-  only:
-  - branches
-  - push
-  - external
-  - web
 
 dockerize:
   image: docker:latest
@@ -35,13 +7,16 @@ dockerize:
   services:
     - docker:dind
   before_script:
-      # NOTE: sh does not accept 'source .env', bash does;
-      # sh is a default shell in docker:latest apparently.
-      # so it has to be ./.env rather than .env!
-    - source ./.env
+    - export VSN=${CI_COMMIT_REF_NAME}
     - docker login -u gitlab-ci-token -p ${CI_BUILD_TOKEN} ${CI_REGISTRY}
   script:
     - docker build -t ${CI_REGISTRY_IMAGE}:${VSN} .
     - docker push ${CI_REGISTRY_IMAGE}:${VSN}
   after_script:
     - docker logout ${CI_REGISTRY}
+  only:
+  - tags
+  - branches
+  - push
+  - external
+  - web
